@@ -64,6 +64,7 @@ const hrModal = document.getElementById('hr-modal');
 const hrModalClose = document.getElementById('hr-modal-close');
 const hrModalTitle = document.getElementById('hr-modal-title');
 const hrEditId = document.getElementById('hr-edit-id');
+const hrEditName = document.getElementById('hr-edit-name');
 const hrEditPhone = document.getElementById('hr-edit-phone');
 const hrEditEmail = document.getElementById('hr-edit-email');
 const hrEditAddress = document.getElementById('hr-edit-address');
@@ -1185,6 +1186,7 @@ function openHrModal(memberId) {
   if (!emp) return;
 
   hrEditId.value = emp.id;
+  hrEditName.value = emp.name || '';
   hrModalTitle.textContent = `${emp.name} - HR Profile & Ledger`;
   hrEditPhone.value = emp.phone || '';
   hrEditEmail.value = emp.email || '';
@@ -1256,6 +1258,7 @@ function closeHrModal() {
 
 function saveHrMaster() {
   const id = hrEditId.value;
+  const name = hrEditName.value.trim();
   const phone = hrEditPhone.value;
   const email = hrEditEmail.value;
   const address = hrEditAddress.value;
@@ -1275,7 +1278,7 @@ function saveHrMaster() {
   fetch('/api/employees/edit-hr', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, phone, email, address, idType, idNumber, salaryPerMonth, pin })
+    body: JSON.stringify({ id, name, phone, email, address, idType, idNumber, salaryPerMonth, pin })
   })
   .then(res => {
     if (!res.ok) throw new Error('Failed to save HR master data');

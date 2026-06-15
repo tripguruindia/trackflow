@@ -95,7 +95,7 @@ app.post('/api/team/verify', (req, res) => {
 
 // Edit employee HR details
 app.post('/api/employees/edit-hr', (req, res) => {
-  const { id, phone, email, address, idType, idNumber, salaryPerMonth, pin } = req.body;
+  const { id, name, phone, email, address, idType, idNumber, salaryPerMonth, pin } = req.body;
   if (!id) {
     return res.status(400).json({ error: 'Team member ID is required' });
   }
@@ -104,6 +104,16 @@ app.post('/api/employees/edit-hr', (req, res) => {
   const employee = db.employees.find(emp => emp.id === id);
   if (!employee) {
     return res.status(404).json({ error: 'Team member not found' });
+  }
+
+  let nameChanged = false;
+  let oldName = employee.name;
+  if (name !== undefined && name.trim() !== '') {
+    const trimmedName = name.trim();
+    if (employee.name !== trimmedName) {
+      employee.name = trimmedName;
+      nameChanged = true;
+    }
   }
 
   if (pin !== undefined && pin.trim() !== '') {
@@ -120,12 +130,53 @@ app.post('/api/employees/edit-hr', (req, res) => {
   employee.idNumber = idNumber !== undefined ? idNumber.trim() : (employee.idNumber || "");
   employee.salaryPerMonth = salaryPerMonth !== undefined ? parseFloat(salaryPerMonth) || 0 : (employee.salaryPerMonth || 0);
 
+  if (nameChanged) {
+    // Cascade name changes to all matching collections to maintain consistency
+    if (db.attendance) {
+      db.attendance.forEach(att => {
+        if (att.memberId === id) {
+          att.memberName = employee.name;
+        }
+      });
+    }
+    if (db.requests) {
+      db.requests.forEach(reqRec => {
+        if (reqRec.memberId === id) {
+          reqRec.memberName = employee.name;
+        }
+      });
+    }
+    if (db.querySessions) {
+      db.querySessions.forEach(qs => {
+        if (qs.memberId === id) {
+          qs.memberName = employee.name;
+        }
+      });
+    }
+    if (db.tasks) {
+      db.tasks.forEach(task => {
+        if (task.memberId === id) {
+          task.memberName = employee.name;
+        }
+      });
+    }
+    if (db.logs) {
+      db.logs.forEach(log => {
+        if (log.employeeId === id) {
+          log.employeeName = employee.name;
+        }
+      });
+    }
+  }
+
   // Log the action
   db.logs.unshift({
     timestamp: new Date().toISOString(),
     employeeId: id,
     employeeName: employee.name,
-    action: `Updated HR details (Salary: ₹${employee.salaryPerMonth}/mo)`
+    action: nameChanged
+      ? `Updated HR details & corrected name spelling from "${oldName}" to "${employee.name}"`
+      : `Updated HR details (Salary: ₹${employee.salaryPerMonth}/mo)`
   });
 
   if (db.logs.length > 100) db.logs = db.logs.slice(0, 100);
