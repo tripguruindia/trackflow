@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manager Dashboard - Live Productivity Tracker</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/theme.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="glass-panel">
+      <div class="logo-container">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <h1>TrackFlow</h1>
+          <p>Real-Time Team Monitor</p>
+        </div>
+      </div>
+      <nav class="nav-links">
+        <a href="index.html" class="nav-btn active">Dashboard</a>
+        <a href="team.html" class="nav-btn">Team Portal</a>
+        <button id="theme-toggle" class="nav-btn" style="padding: 0.6rem 0.8rem;" title="Toggle Theme">
+          <span id="theme-toggle-icon">🌙</span>
+        </button>
+      </nav>
+    </header>
+
+    <!-- View Switcher Tabs -->
+    <div class="glass-panel tabs-container" style="margin-bottom: 2rem; display: flex; padding: 0.4rem; gap: 0.4rem;">
+      <button id="tab-live" class="tab-btn active" style="flex-grow: 1; padding: 0.6rem; border: none; background: transparent; color: var(--text-primary); font-weight: 700; font-family: var(--font-sans); font-size: 0.9rem; border-radius: 10px; cursor: pointer; transition: var(--transition-smooth);">⚡ Live Monitor</button>
+      <button id="tab-analytics" class="tab-btn" style="flex-grow: 1; padding: 0.6rem; border: none; background: transparent; color: var(--text-secondary); font-weight: 600; font-family: var(--font-sans); font-size: 0.9rem; border-radius: 10px; cursor: pointer; transition: var(--transition-smooth);">📊 Analytics & Attendance</button>
+      <button id="tab-hr" class="tab-btn" style="flex-grow: 1; padding: 0.6rem; border: none; background: transparent; color: var(--text-secondary); font-weight: 600; font-family: var(--font-sans); font-size: 0.9rem; border-radius: 10px; cursor: pointer; transition: var(--transition-smooth);">💼 HR & Payroll</button>
+    </div>
+
+    <!-- Live Monitor View -->
+    <div id="view-live">
+      <!-- Stats Ribbon -->
+      <section class="stats-ribbon">
+        <div class="glass-panel stat-card total">
+          <div class="stat-info">
+            <h3>Total Team</h3>
+            <p id="stat-total">0</p>
+          </div>
+          <div class="stat-icon">👥</div>
+        </div>
+        <div class="glass-panel stat-card working">
+          <div class="stat-info">
+            <h3>Working Now</h3>
+            <p id="stat-working">0</p>
+          </div>
+          <div class="stat-icon">⚡</div>
+        </div>
+        <div class="glass-panel stat-card idle">
+          <div class="stat-info">
+            <h3>Idle / Waiting</h3>
+            <p id="stat-idle">0</p>
+          </div>
+          <div class="stat-icon">⏳</div>
+        </div>
+        <div class="glass-panel stat-card break">
+          <div class="stat-info">
+            <h3>On Break</h3>
+            <p id="stat-break">0</p>
+          </div>
+          <div class="stat-icon">☕</div>
+        </div>
+      </section>
+
+      <!-- Main Dashboard Grid -->
+      <div class="dashboard-grid">
+        <!-- Left Column: Team Status Cards -->
+        <section>
+          <!-- Assign Task Panel at the top of the dashboard -->
+          <div class="glass-panel" style="padding: 1.5rem; margin-bottom: 2rem;">
+            <h3 class="section-title" style="margin-bottom: 1.25rem; font-size: 1.1rem; color: var(--brand-cyan); border-left: 3.5px solid var(--brand-cyan); padding-left: 0.5rem;">Assign Task</h3>
+            <div class="assign-task-grid">
+              
+              <div class="form-group" style="margin-bottom: 0; display: flex; flex-direction: column; gap: 0.35rem;">
+                <label for="assign-task-member" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Team Member</label>
+                <div class="select-wrapper">
+                  <select id="assign-task-member" class="select-glow">
+                    <!-- Dynamically populated -->
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0; display: flex; flex-direction: column; gap: 0.35rem;">
+                <label for="assign-task-category" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Task Category</label>
+                <div class="select-wrapper">
+                  <select id="assign-task-category" class="select-glow">
+                    <option value="Flight Search">✈️ Flight Search</option>
+                    <option value="Hotel Booking">🏨 Hotel Booking</option>
+                    <option value="Visa Support">📄 Visa Support</option>
+                    <option value="Itinerary Design">🗺️ Itinerary Design</option>
+                    <option value="Customer Support">📞 Customer Support</option>
+                    <option value="Other Task">⚙️ Other Task</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0; display: flex; flex-direction: column; gap: 0.35rem;">
+                <label for="assign-task-priority" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Task Priority</label>
+                <div class="select-wrapper">
+                  <select id="assign-task-priority" class="select-glow">
+                    <option value="LOW">🟢 Low Priority</option>
+                    <option value="MEDIUM" selected>🔵 Medium Priority</option>
+                    <option value="HIGH">🟡 High Priority</option>
+                    <option value="URGENT">🔴 Urgent Priority</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group assign-task-desc-group" style="margin-bottom: 0; display: flex; flex-direction: column; gap: 0.35rem;">
+                <label for="assign-task-description" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Task Description</label>
+                <input type="text" id="assign-task-description" class="input-glow" placeholder="e.g. Search flight details for customer...">
+              </div>
+
+              <button id="assign-task-btn" class="btn-primary assign-task-btn" style="background: var(--brand-cyan); white-space: nowrap;">Assign Task</button>
+            </div>
+          </div>
+
+          <div class="section-title">
+            Live Status Board
+            <span id="live-indicator" style="color: var(--color-working);">● Live Connected</span>
+          </div>
+          <div id="status-grid" class="status-grid">
+            <!-- Dynamically populated team cards -->
+            <div class="glass-panel team-card" style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-secondary);">
+              Connecting to server...
+            </div>
+          </div>
+        </section>
+
+        <!-- Right Column: Sidebar (Logs & Management) -->
+        <aside class="sidebar">
+          <!-- Live Activity Log -->
+          <div class="glass-panel log-panel">
+            <h3 class="section-title" style="margin-bottom: 1rem; font-size: 1.1rem;">Live Activity Feed</h3>
+            <div id="log-list" class="log-list">
+              <!-- Dynamically populated log items -->
+            </div>
+          </div>
+
+          <!-- Manage Team -->
+          <div class="glass-panel admin-panel">
+            <h3 class="section-title" style="margin-bottom: 1rem; font-size: 1.1rem;">Manage Team</h3>
+            
+            <div class="admin-form" style="display: flex; gap: 0.5rem; flex-direction: column;">
+              <input type="text" id="new-team-name" class="input-glow" placeholder="New team member name...">
+              <div style="display: flex; gap: 0.5rem;">
+                <input type="password" id="new-team-pin" class="input-glow" placeholder="4-Digit PIN..." maxlength="4" style="text-align: center; letter-spacing: 0.1em; flex-grow: 1;">
+                <button id="add-team-btn" class="btn-primary" style="white-space: nowrap;">Add</button>
+              </div>
+            </div>
+
+            <div id="management-list" class="team-management-list">
+              <!-- Dynamically populated list of team members with remove buttons -->
+            </div>
+          </div>
+
+        </aside>
+      </div>
+    </div>
+
+    <!-- Analytics & Attendance View -->
+    <div id="view-analytics" style="display: none;">
+      <!-- Attendance Register and Past Logging Row -->
+      <div class="dashboard-grid" style="margin-bottom: 2rem; align-items: start;">
+        
+        <!-- Left: Visual Attendance Register -->
+        <section class="glass-panel" style="padding: 1.5rem;">
+          <div class="section-title" style="margin-bottom: 1.25rem; font-size: 1.1rem; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center;">
+            <span style="background: transparent; padding: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">📅 Attendance Register</span>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <label for="register-month-select" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-right: 0.25rem;">Month:</label>
+              <div class="select-wrapper" style="width: 160px;">
+                <select id="register-month-select" class="select-glow" style="padding: 0.5rem 2.25rem 0.5rem 1rem; font-size: 0.875rem;">
+                  <!-- Dynamic months populated -->
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <div class="register-table-wrapper" style="margin-top: 1rem;">
+            <table class="register-table" id="register-table">
+              <!-- Dynamically populated register grid -->
+            </table>
+          </div>
+          
+          <!-- Register Legend -->
+          <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; font-size: 0.75rem; color: var(--text-secondary); justify-content: center;">
+            <div style="display: flex; align-items: center; gap: 0.35rem;">
+              <span style="display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: rgba(5, 150, 105, 0.15); border: 1px solid var(--color-working); color: var(--color-working); text-align: center; font-weight: bold; line-height: 14px; font-size: 9px;">P</span> Present
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.35rem;">
+              <span style="display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444; text-align: center; font-weight: bold; line-height: 14px; font-size: 9px;">A</span> Absent
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.35rem;">
+              <span style="display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: rgba(245, 158, 11, 0.15); border: 1px solid var(--color-break); color: var(--color-break); text-align: center; font-weight: bold; line-height: 14px; font-size: 9px;">L</span> On Leave
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.35rem;">
+              <span style="display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: rgba(8, 145, 178, 0.15); border: 1px solid var(--color-idle); color: var(--color-idle); text-align: center; font-weight: bold; line-height: 14px; font-size: 9px;">⏳</span> Pending
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.35rem;">
+              <span style="display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: var(--card-sub-bg); border: 1px solid var(--border-glass); color: var(--text-muted); text-align: center; font-weight: bold; line-height: 14px; font-size: 9px;">—</span> Off / Future
+            </div>
+          </div>
+        </section>
+        
+        <!-- Right: Log Past Attendance -->
+        <section class="glass-panel" style="padding: 1.5rem;">
+          <h3 class="section-title" style="margin-bottom: 1.25rem; font-size: 1.1rem; color: var(--brand-cyan); border-left: 3.5px solid var(--brand-cyan); padding-left: 0.5rem;">Log Past Attendance</h3>
+          
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            
+            <div class="form-group" style="margin-bottom: 0; display: flex; flex-direction: column; gap: 0.35rem;">
+              <label for="past-att-member" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Team Member</label>
+              <div class="select-wrapper">
+                <select id="past-att-member" class="select-glow" style="padding: 0.6rem 2.25rem 0.6rem 0.8rem; font-size: 0.825rem; font-family: var(--font-sans); width: 100%;">
+                  <!-- Dynamically populated -->
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0; display: flex; flex-direction: column; gap: 0.35rem;">
+              <label for="past-att-date" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Date</label>
+              <input type="date" id="past-att-date" class="input-glow" style="padding: 0.6rem 0.8rem; font-size: 0.825rem; height: 38px; width: 100%;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+              <div class="form-group" style="margin-bottom: 0; display: flex; flex-direction: column; gap: 0.35rem;">
+                <label for="past-att-login" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Clock In</label>
+                <input type="time" id="past-att-login" class="input-glow" style="padding: 0.6rem 0.8rem; font-size: 0.825rem; height: 38px; width: 100%;">
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0; display: flex; flex-direction: column; gap: 0.35rem;">
+                <label for="past-att-logout" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Clock Out</label>
+                <input type="time" id="past-att-logout" class="input-glow" style="padding: 0.6rem 0.8rem; font-size: 0.825rem; height: 38px; width: 100%;">
+              </div>
+            </div>
+
+            <button id="past-att-submit-btn" class="btn-primary" style="padding: 0.7rem; border-radius: 10px; font-weight: 700; font-size: 0.875rem; background: var(--brand-cyan); width: 100%; height: 38px; margin-top: 0.5rem;">Add Attendance Record</button>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Pending Attendance Approvals Panel -->
+      <div id="pending-attendance-card" class="glass-panel table-panel" style="padding: 1.5rem; margin-bottom: 2rem; display: none;">
+        <h3 class="section-title" style="margin-bottom: 1.25rem; font-size: 1.1rem; color: var(--brand-cyan);">Pending Attendance Approvals</h3>
+        <div style="overflow-x: auto;">
+          <table class="attendance-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
+            <thead>
+              <tr style="border-bottom: 1.5px solid var(--border-glass); color: var(--text-muted); font-weight: 600;">
+                <th style="padding: 1rem 0.75rem;">Team Member</th>
+                <th style="padding: 1rem 0.75rem;">Date</th>
+                <th style="padding: 1rem 0.75rem;">Log In Time</th>
+                <th style="padding: 1rem 0.75rem;">Log Off Time</th>
+                <th style="padding: 1rem 0.75rem;">Total Duration</th>
+                <th style="padding: 1rem 0.75rem;">Status</th>
+                <th style="padding: 1rem 0.75rem; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="pending-attendance-tbody" style="color: var(--text-secondary);">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Attendance Log Panel -->
+      <div class="glass-panel table-panel" style="padding: 1.5rem;">
+        <h3 class="section-title" style="margin-bottom: 1.25rem; font-size: 1.1rem; justify-content: space-between; align-items: center; display: flex; flex-wrap: wrap; gap: 0.5rem;">
+          Daily Attendance Log
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <label for="attendance-date-filter" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Filter Date:</label>
+            <input type="date" id="attendance-date-filter" class="input-glow" style="width: 150px; padding: 0.4rem 0.6rem; font-size: 0.85rem; height: 34px;">
+            <button id="clear-attendance-filter-btn" class="btn-secondary" style="padding: 0.4rem 0.6rem; font-size: 0.75rem; border-radius: 6px; height: 34px;" title="Show all dates">Show All</button>
+          </div>
+        </h3>
+        <div style="overflow-x: auto;">
+          <table class="attendance-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
+            <thead>
+              <tr style="border-bottom: 1.5px solid var(--border-glass); color: var(--text-muted); font-weight: 600;">
+                <th style="padding: 1rem 0.75rem;">Team Member</th>
+                <th style="padding: 1rem 0.75rem;">Date</th>
+                <th style="padding: 1rem 0.75rem;">Log In Time</th>
+                <th style="padding: 1rem 0.75rem;">Log Off Time</th>
+                <th style="padding: 1rem 0.75rem;">Total Duration</th>
+                <th style="padding: 1rem 0.75rem;">Status</th>
+                <th style="padding: 1rem 0.75rem; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="attendance-tbody" style="color: var(--text-secondary);">
+              <tr>
+                <td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted); font-style: italic;">No attendance logged today.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Completed Query Sessions Log Panel -->
+      <div class="glass-panel table-panel" style="padding: 1.5rem; margin-top: 2rem;">
+        <h3 class="section-title" style="margin-bottom: 1.25rem; font-size: 1.1rem;">Completed Query Sessions Log</h3>
+        <div style="overflow-x: auto;">
+          <table class="attendance-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
+            <thead>
+              <tr style="border-bottom: 1.5px solid var(--border-glass); color: var(--text-muted); font-weight: 600;">
+                <th style="padding: 1rem 0.75rem;">Team Member</th>
+                <th style="padding: 1rem 0.75rem;">Query Category</th>
+                <th style="padding: 1rem 0.75rem;">Description</th>
+                <th style="padding: 1rem 0.75rem;">Started At</th>
+                <th style="padding: 1rem 0.75rem;">Ended At</th>
+                <th style="padding: 1rem 0.75rem;">Duration Worked</th>
+                <th style="padding: 1rem 0.75rem; text-align: right;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="query-sessions-tbody" style="color: var(--text-secondary);">
+              <tr>
+                <td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted); font-style: italic;">No query sessions logged.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Analytics Charts Row -->
+      <div class="analytics-charts-grid" style="margin-top: 2rem;">
+        <!-- Left: Team Productivity Chart -->
+        <div class="glass-panel chart-panel" style="padding: 1.5rem; display: flex; flex-direction: column;">
+          <h3 class="section-title" style="margin-bottom: 1.5rem; font-size: 1.1rem;">Team Time Distribution (Today)</h3>
+          <div style="position: relative; flex-grow: 1; min-height: 300px; display: flex; align-items: center; justify-content: center;">
+            <canvas id="team-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Right: Individual Member Chart -->
+        <div class="glass-panel chart-panel" style="padding: 1.5rem; display: flex; flex-direction: column;">
+          <div class="section-title" style="margin-bottom: 1.5rem; font-size: 1.1rem; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center;">
+            <span>Member Breakdown</span>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <div class="select-wrapper" style="width: 160px;">
+                <select id="chart-member-select" class="select-glow" style="padding: 0.5rem 2.25rem 0.5rem 1rem; font-size: 0.875rem;">
+                  <!-- Populated dynamically -->
+                </select>
+              </div>
+              <button id="reset-member-stats-btn" class="btn-danger" style="padding: 0.5rem 0.75rem; font-size: 0.8rem; border-radius: 8px; font-weight: 600; white-space: nowrap;" title="Reset this member's metrics for today to zero">Reset Time</button>
+            </div>
+          </div>
+          <div style="position: relative; flex-grow: 1; min-height: 300px; display: flex; align-items: center; justify-content: center;">
+            <canvas id="member-chart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analytics & Attendance View Ends -->
+
+    <!-- HR & Payroll View -->
+    <div id="view-hr" style="display: none; animation: fadeIn 0.4s ease-in-out;">
+      <div class="dashboard-grid" style="align-items: start;">
+        <!-- Left Column: Master Directory -->
+        <section>
+          <div class="section-title">Team Master Directory</div>
+          <div id="hr-directory-grid" class="status-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+            <!-- Dynamically populated HR member cards -->
+            <div class="glass-panel team-card" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+              Loading directory...
+            </div>
+          </div>
+        </section>
+
+        <!-- Right Column: Leave & Advance Requests Queue -->
+        <section>
+          <div class="section-title">Pending Leave & Advance Requests</div>
+          <div class="glass-panel" style="padding: 1.5rem; min-height: 400px; display: flex; flex-direction: column;">
+            <div id="hr-requests-list" style="display: flex; flex-direction: column; gap: 1rem; flex-grow: 1; overflow-y: auto; max-height: 580px; padding-right: 0.25rem;">
+              <div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 2rem;">No pending requests.</div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- HR details and payment ledger modal dialog -->
+  <div id="hr-modal" class="lock-screen-overlay" style="display: none; align-items: center; justify-content: center; z-index: 1000; overflow-y: auto; background: rgba(15, 23, 42, 0.4); backdrop-filter: var(--blur-glass);">
+    <div class="glass-panel" style="width: 90%; max-width: 800px; padding: 2rem; border-radius: 20px; display: flex; flex-direction: column; gap: 1.5rem; margin: 2rem auto; border: 1px solid var(--border-glass); box-shadow: var(--shadow-glass); background: var(--bg-glass);">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid var(--border-glass); padding-bottom: 1rem;">
+        <h2 id="hr-modal-title" style="font-size: 1.35rem; font-weight: 700; color: var(--text-primary);">Employee HR Profile & Ledger</h2>
+        <button id="hr-modal-close" style="background: transparent; border: none; font-size: 1.8rem; color: var(--text-secondary); cursor: pointer; line-height: 1; transition: var(--transition-smooth);">&times;</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 2rem; max-height: 65vh; overflow-y: auto; padding-right: 0.5rem;">
+        <!-- Left: Master Details Form -->
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+          <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); border-left: 3.5px solid var(--brand-cyan); padding-left: 0.5rem; margin-bottom: 0.25rem;">Personal Master Details</h3>
+          <input type="hidden" id="hr-edit-id">
+          
+          <div class="form-group" style="display: flex; flex-direction: column; gap: 0.35rem;">
+            <label for="hr-edit-phone" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Phone Number</label>
+            <input type="text" id="hr-edit-phone" class="input-glow" placeholder="e.g. +91 98765 43210" style="padding: 0.65rem 0.8rem; font-size: 0.875rem;">
+          </div>
+
+          <div class="form-group" style="display: flex; flex-direction: column; gap: 0.35rem;">
+            <label for="hr-edit-email" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Email Address</label>
+            <input type="email" id="hr-edit-email" class="input-glow" placeholder="e.g. employee@company.com" style="padding: 0.65rem 0.8rem; font-size: 0.875rem;">
+          </div>
+
+          <div class="form-group" style="display: flex; flex-direction: column; gap: 0.35rem;">
+            <label for="hr-edit-address" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Home Address</label>
+            <textarea id="hr-edit-address" class="input-glow" rows="2" placeholder="Street, City, Pin Code..." style="padding: 0.65rem 0.8rem; font-size: 0.875rem; resize: none;"></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 0.35rem;">
+              <label for="hr-edit-idtype" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">ID Document Type</label>
+              <input type="text" id="hr-edit-idtype" class="input-glow" placeholder="e.g. Passport" style="padding: 0.65rem 0.8rem; font-size: 0.875rem;">
+            </div>
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 0.35rem;">
+              <label for="hr-edit-idnumber" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">ID Document Copy Ref</label>
+              <input type="text" id="hr-edit-idnumber" class="input-glow" placeholder="e.g. L8927402" style="padding: 0.65rem 0.8rem; font-size: 0.875rem;">
+            </div>
+          </div>
+
+          <div class="form-group" style="display: flex; flex-direction: column; gap: 0.35rem;">
+            <label for="hr-edit-salary" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Monthly Salary (INR ₹)</label>
+            <input type="number" id="hr-edit-salary" class="input-glow" placeholder="e.g. 3000" style="padding: 0.65rem 0.8rem; font-size: 0.875rem;">
+          </div>
+
+          <div class="form-group" style="display: flex; flex-direction: column; gap: 0.35rem;">
+            <label for="hr-edit-pin" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Workspace PIN Code (4-Digits)</label>
+            <input type="text" id="hr-edit-pin" class="input-glow" placeholder="e.g. 1111" maxlength="4" style="padding: 0.65rem 0.8rem; font-size: 0.875rem; letter-spacing: 0.05em;">
+          </div>
+
+          <button id="hr-edit-save-btn" class="btn-primary" style="padding: 0.75rem 1rem; border-radius: 10px; font-weight: 700; font-size: 0.9rem; margin-top: 0.5rem; width: 100%;">Save HR Master Data</button>
+        </div>
+
+        <!-- Middle: Ledger / Manual Payout Entry & History -->
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+          <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); border-left: 3.5px solid var(--brand-cyan); padding-left: 0.5rem; margin-bottom: 0.25rem;">Record Payout / Deduction</h3>
+          
+          <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 0.5rem;">
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 0.35rem;">
+              <label for="hr-pay-type" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Transaction Type</label>
+              <div class="select-wrapper">
+                <select id="hr-pay-type" class="select-glow" style="padding: 0.6rem 2.25rem 0.6rem 0.8rem; font-size: 0.825rem; font-family: var(--font-sans);">
+                  <option value="Salary">💰 Pay Salary</option>
+                  <option value="Advance Paid">💵 Pay Advance</option>
+                  <option value="Advance Deduction">✂️ Deduct Advance</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 0.35rem;">
+              <label for="hr-pay-amount" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Amount (₹)</label>
+              <input type="number" id="hr-pay-amount" class="input-glow" placeholder="0.00" style="padding: 0.6rem 0.8rem; font-size: 0.825rem;">
+            </div>
+          </div>
+
+          <div class="form-group" style="display: flex; flex-direction: column; gap: 0.35rem;">
+            <label for="hr-pay-notes" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Notes / Remarks</label>
+            <input type="text" id="hr-pay-notes" class="input-glow" placeholder="e.g. May Payout, Medical request..." style="padding: 0.6rem 0.8rem; font-size: 0.825rem;">
+          </div>
+
+          <button id="hr-pay-record-btn" class="btn-primary" style="padding: 0.75rem 1rem; border-radius: 10px; font-weight: 700; font-size: 0.875rem; background: var(--color-working); width: 100%;">Record Transaction</button>
+
+          <!-- Ledger History list -->
+          <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); border-left: 3.5px solid var(--brand-cyan); padding-left: 0.5rem; margin-top: 0.5rem;">Ledger History</h3>
+          <div id="hr-ledger-history" style="display: flex; flex-direction: column; gap: 0.65rem; overflow-y: auto; max-height: 200px; padding-right: 0.25rem;">
+            <!-- Dynamically populated ledger records -->
+            <div style="color: var(--text-muted); font-style: italic; font-size: 0.825rem;">No transaction history.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Attendance Log Modal -->
+  <div id="attendance-modal" class="lock-screen-overlay" style="display: none; align-items: center; justify-content: center; z-index: 1000; background: rgba(15, 23, 42, 0.4); backdrop-filter: var(--blur-glass);">
+    <div class="glass-panel" style="width: 90%; max-width: 450px; padding: 2rem; border-radius: 20px; display: flex; flex-direction: column; gap: 1.5rem; margin: 2rem auto; border: 1px solid var(--border-glass); box-shadow: var(--shadow-glass); background: var(--bg-glass);">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid var(--border-glass); padding-bottom: 1rem;">
+        <h2 id="attendance-modal-title" style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">Edit Attendance Log</h2>
+        <button id="attendance-modal-close" style="background: transparent; border: none; font-size: 1.8rem; color: var(--text-secondary); cursor: pointer; line-height: 1; transition: var(--transition-smooth);">&times;</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+        <input type="hidden" id="edit-att-id">
+        
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 0.35rem;">
+          <label for="edit-att-date" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Log Date</label>
+          <input type="date" id="edit-att-date" class="input-glow" style="padding: 0.65rem 0.8rem; font-size: 0.875rem;">
+        </div>
+
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 0.35rem;">
+          <label for="edit-att-login" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Log In Time</label>
+          <input type="datetime-local" id="edit-att-login" class="input-glow" style="padding: 0.65rem 0.8rem; font-size: 0.875rem;">
+        </div>
+
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 0.35rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label for="edit-att-logout" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Log Off Time</label>
+            <label style="font-size: 0.75rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.25rem; cursor: pointer;">
+              <input type="checkbox" id="edit-att-active" style="cursor: pointer;"> Still Active
+            </label>
+          </div>
+          <input type="datetime-local" id="edit-att-logout" class="input-glow" style="padding: 0.65rem 0.8rem; font-size: 0.875rem;">
+        </div>
+
+        <button id="attendance-edit-save-btn" class="btn-primary" style="padding: 0.75rem 1rem; border-radius: 10px; font-weight: 700; font-size: 0.9rem; margin-top: 0.5rem; width: 100%;">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lock Screen Overlay (Manager Passcode Protection) -->
+  <div id="lock-screen" class="lock-screen-overlay" style="display: flex;">
+    <div class="glass-panel lock-box">
+      <h2>Manager Access Required</h2>
+      <p>Enter administrator passcode to access the tracking dashboard.</p>
+      <div class="form-group" style="margin: 1.5rem 0;">
+        <input type="password" id="passcode-input" class="input-glow" placeholder="Enter Passcode..." style="text-align: center; font-size: 1.25rem; letter-spacing: 0.15em;">
+        <div id="lock-error-msg" style="display: none; color: #ef4444; font-size: 0.825rem; margin-top: 0.5rem; font-weight: 600;">Invalid passcode. Please try again.</div>
+      </div>
+      <button id="unlock-btn" class="btn-primary" style="width: 100%; padding: 0.8rem; font-size: 1rem;">Unlock Dashboard</button>
+    </div>
+  </div>
+
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

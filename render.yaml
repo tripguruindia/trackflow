@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: trackflow
+    env: node
+    plan: free
+    buildCommand: npm install && node scripts/init-db.js
+    startCommand: node server.js
+    envVars:
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+      - key: NODE_ENV
+        value: production
