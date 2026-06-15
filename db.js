@@ -152,7 +152,7 @@ async function loadFromTurso() {
     };
   } catch (err) {
     console.error("Error loading database from Turso:", err);
-    return null;
+    throw err;
   }
 }
 
@@ -278,24 +278,166 @@ async function syncToTurso(db) {
 
 // Startup Initialization
 async function initDatabase() {
+  console.log("Initializing database tables if not exist...");
+  try {
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS employees (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        pin TEXT NOT NULL,
+        status TEXT NOT NULL,
+        lastUpdated TEXT NOT NULL,
+        currentTask TEXT,
+        phone TEXT,
+        email TEXT,
+        address TEXT,
+        idType TEXT,
+        idNumber TEXT,
+        salaryPerMonth REAL DEFAULT 0,
+        advanceBalance REAL DEFAULT 0
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS employee_ledger (
+        id TEXT PRIMARY KEY,
+        employeeId TEXT NOT NULL,
+        date TEXT NOT NULL,
+        type TEXT NOT NULL,
+        amount REAL NOT NULL,
+        notes TEXT,
+        FOREIGN KEY (employeeId) REFERENCES employees(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS attendance (
+        id TEXT PRIMARY KEY,
+        memberId TEXT NOT NULL,
+        memberName TEXT NOT NULL,
+        date TEXT NOT NULL,
+        loginTime TEXT NOT NULL,
+        logoutTime TEXT,
+        approvalStatus TEXT NOT NULL,
+        FOREIGN KEY (memberId) REFERENCES employees(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS productivity (
+        date TEXT NOT NULL,
+        memberId TEXT NOT NULL,
+        working INTEGER DEFAULT 0,
+        idle INTEGER DEFAULT 0,
+        break INTEGER DEFAULT 0,
+        PRIMARY KEY (date, memberId),
+        FOREIGN KEY (memberId) REFERENCES employees(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS requests (
+        id TEXT PRIMARY KEY,
+        memberId TEXT NOT NULL,
+        memberName TEXT NOT NULL,
+        type TEXT NOT NULL,
+        date TEXT NOT NULL,
+        status TEXT NOT NULL,
+        amount REAL,
+        notes TEXT,
+        details TEXT,
+        FOREIGN KEY (memberId) REFERENCES employees(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS query_sessions (
+        id TEXT PRIMARY KEY,
+        memberId TEXT NOT NULL,
+        memberName TEXT NOT NULL,
+        category TEXT NOT NULL,
+        description TEXT NOT NULL,
+        startedAt TEXT NOT NULL,
+        endedAt TEXT NOT NULL,
+        duration INTEGER NOT NULL,
+        FOREIGN KEY (memberId) REFERENCES employees(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS tasks (
+        id TEXT PRIMARY KEY,
+        memberId TEXT NOT NULL,
+        memberName TEXT NOT NULL,
+        category TEXT NOT NULL,
+        description TEXT NOT NULL,
+        status TEXT NOT NULL,
+        priority TEXT NOT NULL,
+        assignedBy TEXT NOT NULL,
+        timeSpent INTEGER DEFAULT 0,
+        lastStartedAt TEXT,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (memberId) REFERENCES employees(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL,
+        employeeId TEXT,
+        employeeName TEXT,
+        action TEXT NOT NULL
+      )
+    `);
+    console.log("Database tables created or already exist.");
+  } catch (err) {
+    console.error("Error creating database tables:", err);
+  }
+
   console.log("Loading database from Turso...");
-  let loaded = await loadFromTurso();
-  
-  if (!loaded) {
-    console.log("Turso database is empty or connection failed. Initializing with defaults...");
-    loaded = defaultDb;
-    await syncToTurso(loaded);
+  let loaded = null;
+  let connectionFailed = false;
+  try {
+    loaded = await loadFromTurso();
+    if (!loaded) {
+      console.log("Turso database is empty. Seeding defaults...");
+      loaded = defaultDb;
+      await syncToTurso(loaded);
+    } else {
+      console.log("Database successfully loaded from Turso.");
+    }
+  } catch (err) {
+    console.error("Connection to Turso failed. Falling back to local db.json cache...");
+    connectionFailed = true;
+  }
+
+  if (connectionFailed) {
+    // Load from local db.json if exists
+    if (fs.existsSync(DB_PATH)) {
+      try {
+        const data = fs.readFileSync(DB_PATH, 'utf8');
+        dbCache = JSON.parse(data);
+        console.log("Successfully loaded state from local db.json fallback.");
+      } catch (e) {
+        console.error("Error reading local db.json fallback:", e);
+        dbCache = defaultDb;
+      }
+    } else {
+      dbCache = defaultDb;
+    }
   } else {
-    console.log("Database successfully loaded from Turso.");
+    dbCache = loaded;
+    // Write to local json file as sync fallback for automated tests
+    try {
+      if (!fs.existsSync(DB_DIR)) {
+        fs.mkdirSync(DB_DIR, { recursive: true });
+      }
+      fs.writeFileSync(DB_PATH, JSON.stringify(dbCache, null, 2), 'utf8');
+    } catch (err) {
+      console.error("Error writing fallback db.json:", err);
+    }
   }
-  
-  dbCache = loaded;
-  
-  // Write to local json file as sync fallback for automated tests
-  if (!fs.existsSync(DB_DIR)) {
-    fs.mkdirSync(DB_DIR, { recursive: true });
-  }
-  fs.writeFileSync(DB_PATH, JSON.stringify(dbCache, null, 2), 'utf8');
 }
 
 // Synchronous Adapter methods for server.js

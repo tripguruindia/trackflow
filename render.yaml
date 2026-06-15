@@ -3,7 +3,7 @@ services:
     name: trackflow
     env: node
     plan: free
-    buildCommand: npm install && node scripts/init-db.js
+    buildCommand: npm install
     startCommand: node server.js
     envVars:
       - key: TURSO_DATABASE_URL
