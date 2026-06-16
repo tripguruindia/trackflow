@@ -3,8 +3,18 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-const url = process.env.TURSO_DATABASE_URL || 'file:local_sqlite.db';
-const authToken = process.env.TURSO_AUTH_TOKEN || '';
+const url = process.env.TURSO_DATABASE_URL;
+const authToken = process.env.TURSO_AUTH_TOKEN;
+
+if (!url || !authToken) {
+  console.error("=================================================================");
+  console.error("❌ CRITICAL CONFIGURATION ERROR: Turso Database credentials missing!");
+  console.error("Please ensure that both TURSO_DATABASE_URL and TURSO_AUTH_TOKEN");
+  console.error("are configured in your environment variables (on Render) or in a");
+  console.error("local `.env` file in the root directory of your project.");
+  console.error("=================================================================");
+  throw new Error("Missing Turso database credentials");
+}
 
 const client = createClient({
   url: url,
@@ -161,8 +171,19 @@ async function syncToTurso(db) {
   try {
     const queries = [];
     
-    // 1. Employees
+    // Deletes in correct relational order to prevent foreign key constraint violations
+    queries.push({ sql: "DELETE FROM employee_ledger", args: [] });
+    queries.push({ sql: "DELETE FROM attendance", args: [] });
+    queries.push({ sql: "DELETE FROM productivity", args: [] });
+    queries.push({ sql: "DELETE FROM requests", args: [] });
+    queries.push({ sql: "DELETE FROM query_sessions", args: [] });
+    queries.push({ sql: "DELETE FROM tasks", args: [] });
+    queries.push({ sql: "DELETE FROM logs", args: [] });
     queries.push({ sql: "DELETE FROM employees", args: [] });
+
+    const employeeIds = new Set(db.employees.map(e => e.id));
+
+    // 1. Employees & Ledgers
     db.employees.forEach(emp => {
       queries.push({
         sql: `INSERT INTO employees (id, name, pin, status, lastUpdated, currentTask, phone, email, address, idType, idNumber, salaryPerMonth, advanceBalance) 
@@ -184,7 +205,6 @@ async function syncToTurso(db) {
         ]
       });
       
-      // Ledgers
       if (emp.ledger && emp.ledger.length > 0) {
         emp.ledger.forEach(led => {
           queries.push({
@@ -197,70 +217,74 @@ async function syncToTurso(db) {
     });
     
     // 2. Attendance
-    queries.push({ sql: "DELETE FROM attendance", args: [] });
     if (db.attendance) {
       db.attendance.forEach(att => {
-        queries.push({
-          sql: `INSERT INTO attendance (id, memberId, memberName, date, loginTime, logoutTime, approvalStatus) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          args: [att.id, att.memberId, att.memberName, att.date, att.loginTime, att.logoutTime, att.approvalStatus || 'Approved']
-        });
+        if (employeeIds.has(att.memberId)) {
+          queries.push({
+            sql: `INSERT INTO attendance (id, memberId, memberName, date, loginTime, logoutTime, approvalStatus) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            args: [att.id, att.memberId, att.memberName, att.date, att.loginTime, att.logoutTime, att.approvalStatus || 'Approved']
+          });
+        }
       });
     }
     
     // 3. Productivity
-    queries.push({ sql: "DELETE FROM productivity", args: [] });
     if (db.productivity) {
       Object.keys(db.productivity).forEach(date => {
         Object.keys(db.productivity[date]).forEach(memberId => {
-          const prod = db.productivity[date][memberId];
-          queries.push({
-            sql: `INSERT INTO productivity (date, memberId, working, idle, break) 
-                  VALUES (?, ?, ?, ?, ?)`,
-            args: [date, memberId, prod.Working || 0, prod.Idle || 0, prod.Break || 0]
-          });
+          if (employeeIds.has(memberId)) {
+            const prod = db.productivity[date][memberId];
+            queries.push({
+              sql: `INSERT INTO productivity (date, memberId, working, idle, break) 
+                    VALUES (?, ?, ?, ?, ?)`,
+              args: [date, memberId, prod.Working || 0, prod.Idle || 0, prod.Break || 0]
+            });
+          }
         });
       });
     }
     
     // 4. Requests
-    queries.push({ sql: "DELETE FROM requests", args: [] });
     if (db.requests) {
       db.requests.forEach(req => {
-        queries.push({
-          sql: `INSERT INTO requests (id, memberId, memberName, type, date, status, amount, notes, details) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [req.id, req.memberId, req.memberName, req.type, req.date, req.status, req.amount, req.notes || "", JSON.stringify(req.details || {})]
-        });
+        if (employeeIds.has(req.memberId)) {
+          queries.push({
+            sql: `INSERT INTO requests (id, memberId, memberName, type, date, status, amount, notes, details) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [req.id, req.memberId, req.memberName, req.type, req.date, req.status, req.amount, req.notes || "", JSON.stringify(req.details || {})]
+          });
+        }
       });
     }
     
     // 5. Query sessions
-    queries.push({ sql: "DELETE FROM query_sessions", args: [] });
     if (db.querySessions) {
       db.querySessions.forEach(qs => {
-        queries.push({
-          sql: `INSERT INTO query_sessions (id, memberId, memberName, category, description, startedAt, endedAt, duration) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [qs.id, qs.memberId, qs.memberName, qs.category, qs.description, qs.startedAt, qs.endedAt, qs.duration]
-        });
+        if (employeeIds.has(qs.memberId)) {
+          queries.push({
+            sql: `INSERT INTO query_sessions (id, memberId, memberName, category, description, startedAt, endedAt, duration) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [qs.id, qs.memberId, qs.memberName, qs.category, qs.description, qs.startedAt, qs.endedAt, qs.duration]
+          });
+        }
       });
     }
     
     // 6. Tasks
-    queries.push({ sql: "DELETE FROM tasks", args: [] });
     if (db.tasks) {
       db.tasks.forEach(task => {
-        queries.push({
-          sql: `INSERT INTO tasks (id, memberId, memberName, category, description, status, priority, assignedBy, timeSpent, lastStartedAt, createdAt) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [task.id, task.memberId, task.memberName, task.category, task.description, task.status, task.priority, task.assignedBy, task.timeSpent || 0, task.lastStartedAt, task.createdAt]
-        });
+        if (employeeIds.has(task.memberId)) {
+          queries.push({
+            sql: `INSERT INTO tasks (id, memberId, memberName, category, description, status, priority, assignedBy, timeSpent, lastStartedAt, createdAt) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [task.id, task.memberId, task.memberName, task.category, task.description, task.status, task.priority, task.assignedBy, task.timeSpent || 0, task.lastStartedAt, task.createdAt]
+          });
+        }
       });
     }
     
     // 7. Logs
-    queries.push({ sql: "DELETE FROM logs", args: [] });
     if (db.logs) {
       db.logs.forEach(log => {
         queries.push({
