@@ -346,15 +346,19 @@ pinCancelBtn.addEventListener('click', () => {
     return;
   }
   
-  // Reset select dropdown back to previous unlocked member
-  teamSelect.value = selectedMemberId;
-  if (selectedMemberId) {
+  // Reset select dropdown back to previous unlocked member if one exists
+  const isUnlocked = selectedMemberId && sessionStorage.getItem('team_member_unlocked_' + selectedMemberId) === 'true';
+  if (isUnlocked) {
+    teamSelect.value = selectedMemberId;
     portalActions.style.display = 'block';
     if (workspaceCard) workspaceCard.classList.add('dashboard-active');
     if (mainContainer) mainContainer.classList.add('dashboard-active');
     if (profileSelectContainer) profileSelectContainer.style.display = 'none';
     syncTeamMemberState();
   } else {
+    teamSelect.value = '';
+    selectedMemberId = '';
+    localStorage.removeItem('selectedTeamMemberId');
     portalActions.style.display = 'none';
     if (workspaceCard) workspaceCard.classList.remove('dashboard-active');
     if (mainContainer) mainContainer.classList.remove('dashboard-active');
