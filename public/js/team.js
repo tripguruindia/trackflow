@@ -4,11 +4,14 @@ let hrRequests = [];
 let attendanceData = [];
 let tasksData = [];
 let productivityData = {};
+let logsData = [];
 let selectedMemberId = localStorage.getItem('selectedTeamMemberId') || '';
 let selectedStatus = '';
 let activeRequestType = 'Leave';
 let financialsUnlocked = false;
 let pinPurpose = 'unlock_workspace';
+let lastReadLogsTimestamp = localStorage.getItem('lastReadLogsTimestamp_' + selectedMemberId) || '1970-01-01T00:00:00.000Z';
+let lastProcessedLogTimestamp = null;
 
 // DOM Elements
 const teamSelect = document.getElementById('team-select');
@@ -108,9 +111,11 @@ function initWebSocket() {
       attendanceData = message.data.attendance || [];
       tasksData = message.data.tasks || [];
       productivityData = message.data.productivity || {};
+      logsData = message.data.logs || [];
       updateTeamDropdown();
       
       if (selectedMemberId) {
+        checkNewLogsForToasts(logsData);
         renderTasks();
         checkProfileAuth(selectedMemberId);
       }
@@ -244,6 +249,20 @@ function syncTeamMemberState() {
   renderPersonalStats(currentMember);
   renderPersonalAttendanceTable();
   renderMemberHrDetails(currentMember);
+  
+  // Render ledger payouts
+  renderLedgerLog(currentMember);
+  
+  // Render notifications feed and badges
+  renderNotificationsFeed();
+  updateNotificationBadge();
+  
+  // Initialize and render attendance calendar
+  initPersonalCalendarMonth();
+  const calMonthSelect = document.getElementById('personal-calendar-month');
+  if (calMonthSelect && calMonthSelect.value) {
+    renderPersonalCalendar(calMonthSelect.value);
+  }
 }
 
 // Check if team member has active authorization session
@@ -1188,6 +1207,388 @@ if (profileDisplayAdvance) {
   profileDisplayAdvance.addEventListener('click', triggerFinancialsUnlock);
   profileDisplayAdvance.style.cursor = 'pointer';
   profileDisplayAdvance.title = "Click to view Outstanding Advance (PIN required)";
+}
+
+// ===================================================
+// PORTAL NAVIGATION & TAB SWITCHER SYSTEM
+// ===================================================
+function initPortalTabs() {
+  const tabBtnWorkspace = document.getElementById('tab-btn-workspace');
+  const tabBtnAttendance = document.getElementById('tab-btn-attendance');
+  const tabBtnRequests = document.getElementById('tab-btn-requests');
+  const tabBtnNotifications = document.getElementById('tab-btn-notifications');
+
+  const viewWorkspace = document.getElementById('view-workspace');
+  const viewAttendance = document.getElementById('view-attendance');
+  const viewRequests = document.getElementById('view-requests');
+  const viewNotifications = document.getElementById('view-notifications');
+
+  if (!tabBtnWorkspace || !viewWorkspace) return;
+
+  function switchTab(activeBtn, showView) {
+    [viewWorkspace, viewAttendance, viewRequests, viewNotifications].forEach(v => {
+      if (v) v.style.display = 'none';
+    });
+    [tabBtnWorkspace, tabBtnAttendance, tabBtnRequests, tabBtnNotifications].forEach(b => {
+      if (b) {
+        b.classList.remove('active');
+        b.style.background = 'transparent';
+        b.style.color = 'var(--text-secondary)';
+        b.style.fontWeight = '600';
+        b.style.boxShadow = 'none';
+      }
+    });
+
+    activeBtn.classList.add('active');
+    activeBtn.style.background = 'var(--grad-brand)';
+    activeBtn.style.color = 'white';
+    activeBtn.style.fontWeight = '700';
+    activeBtn.style.boxShadow = '0 4px 12px rgba(8, 145, 178, 0.15)';
+    showView.style.display = 'block';
+  }
+
+  tabBtnWorkspace.addEventListener('click', () => switchTab(tabBtnWorkspace, viewWorkspace));
+  tabBtnAttendance.addEventListener('click', () => switchTab(tabBtnAttendance, viewAttendance));
+  tabBtnRequests.addEventListener('click', () => switchTab(tabBtnRequests, viewRequests));
+  
+  tabBtnNotifications.addEventListener('click', () => {
+    switchTab(tabBtnNotifications, viewNotifications);
+    
+    // Mark notifications as read when tab is selected
+    const myLogs = logsData.filter(log => log.employeeId === selectedMemberId);
+    if (myLogs.length > 0) {
+      const latestTimestamp = myLogs.reduce((max, log) => new Date(log.timestamp) > new Date(max) ? log.timestamp : max, '1970-01-01T00:00:00.000Z');
+      lastReadLogsTimestamp = latestTimestamp;
+    } else {
+      lastReadLogsTimestamp = new Date().toISOString();
+    }
+    localStorage.setItem('lastReadLogsTimestamp_' + selectedMemberId, lastReadLogsTimestamp);
+    renderNotificationsFeed();
+    updateNotificationBadge();
+  });
+}
+
+initPortalTabs();
+
+// ===================================================
+// LEDGER, CALENDAR, NOTIFICATIONS & TOAST SERVICES
+// ===================================================
+
+function renderLedgerLog(member) {
+  const tbody = document.getElementById('personal-ledger-table-body');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+  const ledger = member.ledger || [];
+
+  if (ledger.length === 0) {
+    tbody.innerHTML = `
+      <tr style="border-bottom: 1px solid var(--border-glass);">
+        <td colspan="4" style="color: var(--text-muted); font-style: italic; font-size: 0.8rem; text-align: center; padding: 1.5rem 0;">No ledger transactions recorded.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  ledger.forEach(item => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid var(--border-glass)';
+    tr.style.color = 'var(--text-secondary)';
+
+    const dateStr = new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    
+    let typeBadge = '';
+    let amountColor = '';
+    let amountPrefix = '';
+
+    if (item.type === 'Salary Payout') {
+      typeBadge = `<span style="font-weight: 700; color: var(--color-working);">💼 Salary</span>`;
+      amountColor = 'var(--color-working)';
+      amountPrefix = '+';
+    } else if (item.type === 'Advance Paid') {
+      typeBadge = `<span style="font-weight: 700; color: #f59e0b;">💵 Advance Paid</span>`;
+      amountColor = '#f59e0b';
+      amountPrefix = '+';
+    } else if (item.type === 'Advance Deduction') {
+      typeBadge = `<span style="font-weight: 700; color: #ef4444;">📉 Advance Ded.</span>`;
+      amountColor = '#ef4444';
+      amountPrefix = '-';
+    } else {
+      typeBadge = `<span style="font-weight: 700; color: var(--text-primary);">${item.type}</span>`;
+      amountColor = 'var(--text-primary)';
+      amountPrefix = '';
+    }
+
+    tr.innerHTML = `
+      <td style="padding: 0.6rem 0.25rem;">${dateStr}</td>
+      <td style="padding: 0.6rem 0.25rem;">${typeBadge}</td>
+      <td style="padding: 0.6rem 0.25rem; font-weight: 700; color: ${amountColor};">${amountPrefix}₹${item.amount.toLocaleString()}.00</td>
+      <td style="padding: 0.6rem 0.25rem; color: var(--text-muted); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${item.notes || ''}">${item.notes || '--'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function initPersonalCalendarMonth() {
+  const select = document.getElementById('personal-calendar-month');
+  if (!select) return;
+  if (select.children.length > 0) return;
+
+  const now = new Date();
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const opt = document.createElement('option');
+    opt.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    opt.textContent = d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    select.appendChild(opt);
+  }
+
+  select.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  select.addEventListener('change', () => {
+    renderPersonalCalendar(select.value);
+  });
+}
+
+function renderPersonalCalendar(monthString) {
+  const container = document.getElementById('personal-calendar-grid-wrapper');
+  if (!container) return;
+
+  const [year, month] = monthString.split('-').map(Number);
+  const firstDay = new Date(year, month - 1, 1);
+  const lastDay = new Date(year, month, 0);
+  
+  const daysInMonth = lastDay.getDate();
+  const startDayOfWeek = firstDay.getDay();
+
+  let html = `<div class="personal-calendar-grid">`;
+  
+  const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  daysOfWeek.forEach(day => {
+    html += `<div class="calendar-header-cell">${day}</div>`;
+  });
+
+  for (let i = 0; i < startDayOfWeek; i++) {
+    html += `<div class="calendar-day-cell other-month"></div>`;
+  }
+
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const currentDayDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const isToday = currentDayDateStr === todayStr;
+    const cellClass = isToday ? 'calendar-day-cell today' : 'calendar-day-cell';
+
+    const dayAttendance = attendanceData.filter(att => att.memberId === selectedMemberId && att.date === currentDayDateStr);
+    
+    const leaveRequests = hrRequests.filter(req => {
+      if (req.memberId !== selectedMemberId || req.type !== 'Leave' || req.status === 'Rejected') return false;
+      const start = req.details.startDate;
+      const end = req.details.endDate;
+      return currentDayDateStr >= start && currentDayDateStr <= end;
+    });
+
+    let statusSymbol = '—';
+    let statusClass = 'off-duty';
+    let tooltip = `${day} ${firstDay.toLocaleDateString(undefined, {month: 'long', year: 'numeric'})} - Off Duty`;
+
+    if (dayAttendance.length > 0) {
+      const approvedAtt = dayAttendance.find(att => att.approvalStatus === 'Approved');
+      const pendingAtt = dayAttendance.find(att => att.approvalStatus === 'Pending');
+
+      if (approvedAtt) {
+        statusSymbol = 'P';
+        statusClass = 'present';
+        const inTime = formatClockTime(approvedAtt.loginTime);
+        const outTime = approvedAtt.logoutTime ? formatClockTime(approvedAtt.logoutTime) : 'Active';
+        tooltip = `Present\nIn: ${inTime}\nOut: ${outTime}`;
+      } else if (pendingAtt) {
+        statusSymbol = '⏳';
+        statusClass = 'pending';
+        tooltip = `Pending Approval\nChecked in at: ${formatClockTime(pendingAtt.loginTime)}`;
+      }
+    } else if (leaveRequests.length > 0) {
+      const approvedLeave = leaveRequests.find(req => req.status === 'Approved');
+      const pendingLeave = leaveRequests.find(req => req.status === 'Pending');
+
+      if (approvedLeave) {
+        statusSymbol = 'L';
+        statusClass = 'on-leave';
+        tooltip = `On Leave (Approved)\nReason: ${approvedLeave.details.reason}`;
+      } else if (pendingLeave) {
+        statusSymbol = '⏳';
+        statusClass = 'pending';
+        tooltip = `Leave Requested (Pending Approval)\nReason: ${pendingLeave.details.reason}`;
+      }
+    } else {
+      const dayDate = new Date(year, month - 1, day);
+      const todayDate = new Date();
+      todayDate.setHours(0,0,0,0);
+      if (dayDate < todayDate) {
+        const dayOfWeek = dayDate.getDay();
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+          statusSymbol = '—';
+          statusClass = 'off-duty';
+          tooltip = `Weekend Off`;
+        } else {
+          statusSymbol = 'A';
+          statusClass = 'absent';
+          tooltip = `Absent`;
+        }
+      }
+    }
+
+    html += `
+      <div class="${cellClass}" title="${tooltip}">
+        <span class="calendar-day-number">${day}</span>
+        <span class="calendar-day-status ${statusClass}">${statusSymbol}</span>
+      </div>
+    `;
+  }
+
+  const totalCellsSoFar = startDayOfWeek + daysInMonth;
+  const remainingCells = (7 - (totalCellsSoFar % 7)) % 7;
+  for (let i = 0; i < remainingCells; i++) {
+    html += `<div class="calendar-day-cell other-month"></div>`;
+  }
+
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+function renderNotificationsFeed() {
+  const container = document.getElementById('notifications-feed-container');
+  if (!container) return;
+
+  const myLogs = logsData.filter(log => log.employeeId === selectedMemberId);
+  container.innerHTML = '';
+
+  if (myLogs.length === 0) {
+    container.innerHTML = `<div style="color: var(--text-muted); font-style: italic; font-size: 0.8rem; text-align: center; padding: 2rem 0;">No notifications.</div>`;
+    return;
+  }
+
+  myLogs.forEach(log => {
+    const div = document.createElement('div');
+    div.className = 'glass-panel';
+    div.style.padding = '0.75rem 1rem';
+    div.style.border = '1px solid var(--border-glass)';
+    div.style.borderRadius = '8px';
+    div.style.fontSize = '0.8rem';
+    div.style.background = 'var(--bg-glass)';
+    div.style.display = 'flex';
+    div.style.flexDirection = 'column';
+    div.style.gap = '0.2rem';
+
+    const isUnread = new Date(log.timestamp) > new Date(lastReadLogsTimestamp);
+    if (isUnread) {
+      div.style.borderLeft = '3px solid var(--brand-cyan)';
+      div.style.background = 'rgba(8, 145, 178, 0.03)';
+    }
+
+    const timeStr = new Date(log.timestamp).toLocaleString();
+    div.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: var(--text-muted); font-weight: 500;">
+        <span>🔔 Alert</span>
+        <span>${timeStr}</span>
+      </div>
+      <div style="color: var(--text-primary); font-weight: 600; line-height: 1.4;">
+        ${log.action}
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function updateNotificationBadge() {
+  const badge = document.getElementById('notification-badge');
+  if (!badge) return;
+
+  const myLogs = logsData.filter(log => log.employeeId === selectedMemberId);
+  const unreadCount = myLogs.filter(log => new Date(log.timestamp) > new Date(lastReadLogsTimestamp)).length;
+
+  if (unreadCount > 0) {
+    badge.textContent = unreadCount;
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+const clearNotificationsBtn = document.getElementById('clear-notifications-btn');
+if (clearNotificationsBtn) {
+  clearNotificationsBtn.addEventListener('click', () => {
+    const myLogs = logsData.filter(log => log.employeeId === selectedMemberId);
+    if (myLogs.length > 0) {
+      const latestTimestamp = myLogs.reduce((max, log) => new Date(log.timestamp) > new Date(max) ? log.timestamp : max, '1970-01-01T00:00:00.000Z');
+      lastReadLogsTimestamp = latestTimestamp;
+    } else {
+      lastReadLogsTimestamp = new Date().toISOString();
+    }
+    localStorage.setItem('lastReadLogsTimestamp_' + selectedMemberId, lastReadLogsTimestamp);
+    renderNotificationsFeed();
+    updateNotificationBadge();
+  });
+}
+
+function checkNewLogsForToasts(newLogs) {
+  const myLogs = newLogs.filter(log => log.employeeId === selectedMemberId);
+  if (myLogs.length === 0) return;
+
+  const sortedLogs = [...myLogs].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+  if (!lastProcessedLogTimestamp) {
+    lastProcessedLogTimestamp = sortedLogs[sortedLogs.length - 1].timestamp;
+    return;
+  }
+
+  sortedLogs.forEach(log => {
+    if (new Date(log.timestamp) > new Date(lastProcessedLogTimestamp)) {
+      showToast(log.action);
+    }
+  });
+
+  lastProcessedLogTimestamp = sortedLogs[sortedLogs.length - 1].timestamp;
+}
+
+function showToast(message) {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = 'toast-msg success';
+  
+  let icon = '🔔';
+  if (message.includes('Approved') || message.includes('approved')) {
+    toast.className = 'toast-msg success';
+    icon = '✅';
+  } else if (message.includes('Rejected') || message.includes('rejected')) {
+    toast.className = 'toast-msg danger';
+    icon = '❌';
+  } else if (message.includes('Recorded') || message.includes('transaction') || message.includes('Payment') || message.includes('Salary')) {
+    toast.className = 'toast-msg success';
+    icon = '💰';
+  } else if (message.includes('Leave') || message.includes('leave')) {
+    toast.className = 'toast-msg warning';
+    icon = '🌴';
+  }
+
+  toast.innerHTML = `
+    <div style="font-size: 1.25rem;">${icon}</div>
+    <div style="flex: 1; line-height: 1.3;">${message}</div>
+  `;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add('fade-out');
+    toast.addEventListener('animationend', () => {
+      toast.remove();
+    });
+  }, 5000);
 }
 
 // Start WebSocket connection

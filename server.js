@@ -273,8 +273,8 @@ app.post('/api/requests/handle', (req, res) => {
   // Log action
   db.logs.unshift({
     timestamp: new Date().toISOString(),
-    employeeId: 'system',
-    employeeName: 'System',
+    employeeId: request.memberId,
+    employeeName: request.memberName,
     action: `${status} ${request.memberName}'s ${request.type} request`
   });
 
@@ -320,8 +320,8 @@ app.post('/api/ledger/payment', (req, res) => {
   // Log action
   db.logs.unshift({
     timestamp: new Date().toISOString(),
-    employeeId: 'system',
-    employeeName: 'System',
+    employeeId: memberId,
+    employeeName: employee.name,
     action: `Recorded ${type} transaction (₹${transAmount}) for ${employee.name}`
   });
 
@@ -364,8 +364,8 @@ app.post('/api/query-sessions/delete', (req, res) => {
   // Log action
   db.logs.unshift({
     timestamp: new Date().toISOString(),
-    employeeId: 'system',
-    employeeName: 'System',
+    employeeId: memberId,
+    employeeName: memberName,
     action: `Admin deleted query session log of ${memberName}: [${category}] ${description} (Deducted ${duration}s)`
   });
 
@@ -407,8 +407,8 @@ app.post('/api/productivity/reset', (req, res) => {
   // Log action
   db.logs.unshift({
     timestamp: new Date().toISOString(),
-    employeeId: 'system',
-    employeeName: 'System',
+    employeeId: memberId,
+    employeeName: employeeName,
     action: `Admin reset today's productivity stats to zero for ${employeeName}`
   });
 
@@ -443,8 +443,8 @@ app.post('/api/attendance/edit', (req, res) => {
   // Log action
   db.logs.unshift({
     timestamp: new Date().toISOString(),
-    employeeId: 'system',
-    employeeName: 'System',
+    employeeId: attRecord.memberId,
+    employeeName: attRecord.memberName,
     action: `Admin updated attendance log for ${attRecord.memberName} (Date: ${date})`
   });
 
@@ -477,8 +477,8 @@ app.post('/api/attendance/delete', (req, res) => {
   // Log action
   db.logs.unshift({
     timestamp: new Date().toISOString(),
-    employeeId: 'system',
-    employeeName: 'System',
+    employeeId: attRecord.memberId,
+    employeeName: attRecord.memberName,
     action: `Admin deleted attendance log for ${attRecord.memberName} on date: ${attRecord.date}`
   });
 
@@ -520,8 +520,8 @@ app.post('/api/attendance/add-past', (req, res) => {
   // Log action
   db.logs.unshift({
     timestamp: new Date().toISOString(),
-    employeeId: 'system',
-    employeeName: 'System',
+    employeeId: memberId,
+    employeeName: employee.name,
     action: `Admin manually added past attendance for ${employee.name} on date: ${date}`
   });
 
@@ -553,8 +553,8 @@ app.post('/api/attendance/approve', (req, res) => {
   // Log action
   db.logs.unshift({
     timestamp: new Date().toISOString(),
-    employeeId: 'system',
-    employeeName: 'System',
+    employeeId: attRecord.memberId,
+    employeeName: attRecord.memberName,
     action: `Admin approved attendance log for ${attRecord.memberName} on date: ${attRecord.date}`
   });
 
@@ -587,8 +587,8 @@ app.post('/api/attendance/reject', (req, res) => {
   // Log action
   db.logs.unshift({
     timestamp: new Date().toISOString(),
-    employeeId: 'system',
-    employeeName: 'System',
+    employeeId: attRecord.memberId,
+    employeeName: attRecord.memberName,
     action: `Admin rejected attendance log for ${attRecord.memberName} on date: ${attRecord.date}`
   });
 
@@ -839,8 +839,8 @@ app.post('/api/tasks/create', (req, res) => {
   
   db.logs.unshift({
     timestamp: nowIso,
-    employeeId: creator === 'Admin' ? 'system' : memberId,
-    employeeName: creator === 'Admin' ? 'System' : employee.name,
+    employeeId: memberId,
+    employeeName: employee.name,
     action: logMsg
   });
 
@@ -850,6 +850,96 @@ app.post('/api/tasks/create', (req, res) => {
   broadcastState(db);
 
   res.status(201).json({ success: true, task: newTask });
+});
+
+// Edit description of an assigned task
+app.post('/api/tasks/edit-desc', (req, res) => {
+  const { taskId, description } = req.body;
+  if (!taskId || !description || description.trim() === '') {
+    return res.status(400).json({ error: 'Task ID and Description are required' });
+  }
+
+  const db = readDb();
+  const task = db.tasks.find(t => t.id === taskId);
+  if (!task) {
+    return res.status(404).json({ error: 'Task not found' });
+  }
+
+  const oldDesc = task.description;
+  task.description = description.trim();
+
+  // If there's an employee currently working on this task, update their currentTask description
+  const employee = db.employees.find(emp => emp.id === task.memberId);
+  if (employee && employee.currentTask && employee.currentTask.id === taskId) {
+    employee.currentTask.description = task.description;
+  }
+
+  // If this task was completed, search for and update corresponding query session description
+  if (task.status === 'Completed' && db.querySessions) {
+    const qSession = db.querySessions.find(qs => 
+      qs.memberId === task.memberId && 
+      qs.category === task.category && 
+      qs.description === oldDesc
+    );
+    if (qSession) {
+      qSession.description = task.description;
+    }
+  }
+
+  // Log action
+  db.logs.unshift({
+    timestamp: new Date().toISOString(),
+    employeeId: task.memberId,
+    employeeName: task.memberName,
+    action: `Admin modified task description of [${task.category}] from "${oldDesc}" to "${task.description}"`
+  });
+
+  if (db.logs.length > 100) db.logs = db.logs.slice(0, 100);
+
+  writeDb(db);
+  broadcastState(db);
+
+  res.json({ success: true, task });
+});
+
+// Delete a task (Active, Pending, or Completed)
+app.post('/api/tasks/delete', (req, res) => {
+  const { taskId } = req.body;
+  if (!taskId) {
+    return res.status(400).json({ error: 'Task ID is required' });
+  }
+
+  const db = readDb();
+  const taskIndex = db.tasks.findIndex(t => t.id === taskId);
+  if (taskIndex === -1) {
+    return res.status(404).json({ error: 'Task not found' });
+  }
+
+  const task = db.tasks[taskIndex];
+  db.tasks.splice(taskIndex, 1);
+
+  // If employee was working on this deleted task, transition them back to 'Idle'
+  const employee = db.employees.find(emp => emp.id === task.memberId);
+  if (employee && employee.currentTask && employee.currentTask.id === taskId) {
+    employee.currentTask = null;
+    employee.status = 'Idle';
+    employee.lastUpdated = new Date().toISOString();
+  }
+
+  // Log action
+  db.logs.unshift({
+    timestamp: new Date().toISOString(),
+    employeeId: task.memberId,
+    employeeName: task.memberName,
+    action: `Admin deleted task: [${task.category}] "${task.description}"`
+  });
+
+  if (db.logs.length > 100) db.logs = db.logs.slice(0, 100);
+
+  writeDb(db);
+  broadcastState(db);
+
+  res.json({ success: true });
 });
 
 // Start or Resume a task

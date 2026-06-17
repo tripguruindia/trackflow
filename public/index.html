@@ -394,13 +394,13 @@
 
   <!-- HR details and payment ledger modal dialog -->
   <div id="hr-modal" class="lock-screen-overlay" style="display: none; align-items: center; justify-content: center; z-index: 1000; overflow-y: auto; background: rgba(15, 23, 42, 0.4); backdrop-filter: var(--blur-glass);">
-    <div class="glass-panel" style="width: 90%; max-width: 800px; padding: 2rem; border-radius: 20px; display: flex; flex-direction: column; gap: 1.5rem; margin: 2rem auto; border: 1px solid var(--border-glass); box-shadow: var(--shadow-glass); background: var(--bg-glass);">
+    <div class="glass-panel" style="width: 95%; max-width: 1100px; padding: 2rem; border-radius: 20px; display: flex; flex-direction: column; gap: 1.5rem; margin: 2rem auto; border: 1px solid var(--border-glass); box-shadow: var(--shadow-glass); background: var(--bg-glass);">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid var(--border-glass); padding-bottom: 1rem;">
         <h2 id="hr-modal-title" style="font-size: 1.35rem; font-weight: 700; color: var(--text-primary);">Employee HR Profile & Ledger</h2>
         <button id="hr-modal-close" style="background: transparent; border: none; font-size: 1.8rem; color: var(--text-secondary); cursor: pointer; line-height: 1; transition: var(--transition-smooth);">&times;</button>
       </div>
 
-      <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 2rem; max-height: 65vh; overflow-y: auto; padding-right: 0.5rem;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; max-height: 65vh; overflow-y: auto; padding-right: 0.5rem;">
         <!-- Left: Master Details Form -->
         <div style="display: flex; flex-direction: column; gap: 1.25rem;">
           <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); border-left: 3.5px solid var(--brand-cyan); padding-left: 0.5rem; margin-bottom: 0.25rem;">Personal Master Details</h3>
@@ -483,6 +483,16 @@
           <div id="hr-ledger-history" style="display: flex; flex-direction: column; gap: 0.65rem; overflow-y: auto; max-height: 200px; padding-right: 0.25rem;">
             <!-- Dynamically populated ledger records -->
             <div style="color: var(--text-muted); font-style: italic; font-size: 0.825rem;">No transaction history.</div>
+          </div>
+        </div>
+
+        <!-- Right: Task Management & History -->
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+          <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); border-left: 3.5px solid var(--brand-cyan); padding-left: 0.5rem; margin-bottom: 0.25rem;">Tasks & Assignments</h3>
+          
+          <div id="hr-tasks-list" style="display: flex; flex-direction: column; gap: 0.65rem; overflow-y: auto; max-height: 480px; padding-right: 0.25rem;">
+            <!-- Dynamically populated tasks -->
+            <div style="color: var(--text-muted); font-style: italic; font-size: 0.825rem;">No tasks assigned.</div>
           </div>
         </div>
       </div>

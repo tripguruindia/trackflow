@@ -150,6 +150,7 @@ function initWebSocket() {
         const activeEmp = employees.find(e => e.id === currentOpenModalId);
         if (activeEmp) {
           renderLedgerList(activeEmp.ledger || []);
+          renderHrTaskList(activeEmp.id);
         }
       }
     }
@@ -1204,6 +1205,9 @@ function openHrModal(memberId) {
   // Load ledger history list
   renderLedgerList(emp.ledger || []);
 
+  // Load tasks list
+  renderHrTaskList(emp.id);
+
   hrModal.style.display = 'flex';
 }
 
@@ -1894,6 +1898,18 @@ function renderAttendanceRegister() {
       }
 
       td.innerHTML = cellHtml;
+      td.style.cursor = 'pointer';
+      td.addEventListener('click', () => {
+        if (dayLogs.length > 0) {
+          openAttendanceModal(dayLogs[0].id);
+        } else {
+          pastAttMember.value = emp.id;
+          pastAttDate.value = dateStr;
+          pastAttLogin.value = '';
+          pastAttLogout.value = '';
+          pastAttLogin.focus();
+        }
+      });
       tr.appendChild(td);
     }
     tbody.appendChild(tr);
@@ -1960,6 +1976,133 @@ function initPastAttendanceForm() {
     });
   });
 }
+
+function renderHrTaskList(memberId) {
+  const container = document.getElementById('hr-tasks-list');
+  if (!container) return;
+
+  const empTasks = (tasksData || []).filter(t => t.memberId === memberId);
+  container.innerHTML = '';
+
+  if (empTasks.length === 0) {
+    container.innerHTML = `<div style="color: var(--text-muted); font-style: italic; font-size: 0.825rem; text-align: center; padding: 1.5rem 0;">No tasks assigned.</div>`;
+    return;
+  }
+
+  // Sort: Active first, then Pending, then Completed. Chronological within groups.
+  const sortedTasks = [...empTasks].sort((a, b) => {
+    const statusOrder = { 'Active': 1, 'Pending': 2, 'Completed': 3 };
+    if (statusOrder[a.status] !== statusOrder[b.status]) {
+      return statusOrder[a.status] - statusOrder[b.status];
+    }
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+
+  sortedTasks.forEach(task => {
+    const div = document.createElement('div');
+    div.className = 'glass-panel';
+    div.style.padding = '0.75rem';
+    div.style.border = '1px solid var(--border-glass)';
+    div.style.borderRadius = '8px';
+    div.style.fontSize = '0.775rem';
+    div.style.background = 'var(--bg-glass)';
+    div.style.display = 'flex';
+    div.style.flexDirection = 'column';
+    div.style.gap = '0.35rem';
+    div.style.marginBottom = '0.5rem';
+
+    let statusColor = 'var(--text-muted)';
+    let statusText = task.status;
+    if (task.status === 'Active') {
+      statusColor = 'var(--color-working)';
+      statusText = '⏱️ Active';
+    } else if (task.status === 'Pending') {
+      statusColor = '#f59e0b';
+      statusText = '⏳ Pending/Paused';
+    } else if (task.status === 'Completed') {
+      statusColor = 'var(--text-muted)';
+      statusText = '✅ Completed';
+    }
+
+    const priorityLabel = `<span style="font-weight: 700; color: ${task.priority === 'URGENT' ? '#ef4444' : (task.priority === 'HIGH' ? '#f59e0b' : 'var(--brand-cyan)')};">${task.priority}</span>`;
+    const originLabel = task.assignedBy === 'Admin' ? 'Admin Assigned' : 'Self Assigned';
+
+    div.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dotted var(--border-glass); padding-bottom: 0.25rem; font-size: 0.7rem;">
+        <span style="font-weight: 700; color: ${statusColor};">${statusText}</span>
+        <span style="color: var(--text-muted);">${originLabel} | Priority: ${priorityLabel}</span>
+      </div>
+      <div style="color: var(--text-secondary); line-height: 1.35; margin-top: 0.2rem;">
+        <strong>[${task.category}]</strong> "${task.description}"
+      </div>
+      <div style="font-size: 0.725rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; margin-top: 0.25rem;">
+        <span>⏱️ Time: ${formatHourMinSec(task.timeSpent || 0)}</span>
+        <div style="display: flex; gap: 0.35rem;">
+          <button class="btn-secondary" onclick="editTaskDescription('${task.id}')" style="padding: 0.2rem 0.5rem; font-size: 0.65rem; border-radius: 4px; border: 1px solid var(--border-glass); background: transparent; cursor: pointer; transition: var(--transition-smooth);">✏️ Edit</button>
+          <button class="btn-danger" onclick="deleteAdminTask('${task.id}')" style="padding: 0.2rem 0.5rem; font-size: 0.65rem; border-radius: 4px; border: none; background: #ef4444; color: white; cursor: pointer; transition: var(--transition-smooth);">🗑️ Delete</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// Bind task action helper functions to window context
+window.editTaskDescription = function(taskId) {
+  const task = tasksData.find(t => t.id === taskId);
+  if (!task) return;
+
+  const newDesc = prompt("Edit Task Description:", task.description);
+  if (newDesc === null) return;
+  const trimmed = newDesc.trim();
+  if (!trimmed) {
+    alert("Task description cannot be empty.");
+    return;
+  }
+
+  fetch('/api/tasks/edit-desc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ taskId, description: trimmed })
+  })
+  .then(res => {
+    if (!res.ok) {
+      return res.json().then(data => { throw new Error(data.error); });
+    }
+    return res.json();
+  })
+  .then(() => {
+    renderHrTaskList(task.memberId);
+  })
+  .catch(err => {
+    alert("Error editing task: " + err.message);
+  });
+};
+
+window.deleteAdminTask = function(taskId) {
+  const task = tasksData.find(t => t.id === taskId);
+  if (!task) return;
+
+  if (confirm(`Are you sure you want to permanently delete task "${task.description}"?`)) {
+    fetch('/api/tasks/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId })
+    })
+    .then(res => {
+      if (!res.ok) {
+        return res.json().then(data => { throw new Error(data.error); });
+      }
+      return res.json();
+    })
+    .then(() => {
+      renderHrTaskList(task.memberId);
+    })
+    .catch(err => {
+      alert("Error deleting task: " + err.message);
+    });
+  }
+};
 
 // Run auth check on startup
 checkAuthAndInit();
