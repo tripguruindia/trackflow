@@ -16,6 +16,15 @@ const dbAdapter = require('./db');
 const readDb = dbAdapter.readDb;
 const writeDb = dbAdapter.writeDb;
 
+function getLocalDateString(dateInput) {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : (dateInput || new Date());
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+
 // REST API Endpoints
 
 // Verify administrator passcode (Default is '2920')
@@ -352,7 +361,7 @@ app.post('/api/query-sessions/delete', (req, res) => {
   const { memberId, duration, startedAt, category, description, memberName } = session;
 
   // Deduct the duration from productivity (today or the day it was created)
-  const date = startedAt.split('T')[0];
+  const date = getLocalDateString(startedAt);
   if (db.productivity && db.productivity[date] && db.productivity[date][memberId]) {
     const originalWorking = db.productivity[date][memberId].Working || 0;
     db.productivity[date][memberId].Working = Math.max(0, originalWorking - duration);
@@ -395,7 +404,7 @@ app.post('/api/productivity/reset', (req, res) => {
   if (db.querySessions) {
     db.querySessions = db.querySessions.filter(qs => {
       const isTargetMember = qs.memberId === memberId;
-      const isTargetDate = qs.startedAt.split('T')[0] === date;
+      const isTargetDate = getLocalDateString(qs.startedAt) === date;
       return !(isTargetMember && isTargetDate);
     });
   }
@@ -654,7 +663,7 @@ app.post('/api/attendance/office-in', (req, res) => {
   }
 
   const nowIso = new Date().toISOString();
-  const today = nowIso.split('T')[0];
+  const today = getLocalDateString(nowIso);
 
   // Create attendance record
   const newAtt = {
@@ -711,7 +720,7 @@ app.post('/api/attendance/office-out', (req, res) => {
   }
 
   const nowIso = new Date().toISOString();
-  const today = nowIso.split('T')[0];
+  const today = getLocalDateString(nowIso);
   const oldStatus = employee.status;
 
   // 1. Calculate and save productivity time up to now
@@ -975,7 +984,7 @@ app.post('/api/tasks/start', (req, res) => {
       const elapsedMs = Date.now() - new Date(employee.lastUpdated).getTime();
       const elapsedSecs = Math.floor(elapsedMs / 1000);
       if (elapsedSecs > 0) {
-        const today = nowIso.split('T')[0];
+        const today = getLocalDateString(nowIso);
         if (!db.productivity) db.productivity = {};
         if (!db.productivity[today]) db.productivity[today] = {};
         if (!db.productivity[today][employee.id]) {
@@ -1050,7 +1059,7 @@ app.post('/api/tasks/pause', (req, res) => {
     const elapsedStatusSecs = Math.floor(elapsedStatusMs / 1000);
 
     if (elapsedStatusSecs > 0) {
-      const today = nowIso.split('T')[0];
+      const today = getLocalDateString(nowIso);
       if (!db.productivity) db.productivity = {};
       if (!db.productivity[today]) db.productivity[today] = {};
       if (!db.productivity[today][employee.id]) {
@@ -1107,7 +1116,7 @@ app.post('/api/tasks/finish', (req, res) => {
   }
 
   const nowIso = new Date().toISOString();
-  const today = nowIso.split('T')[0];
+  const today = getLocalDateString(nowIso);
   let sessionSecs = 0;
 
   if (task.status === 'Active') {
@@ -1219,7 +1228,7 @@ wss.on('connection', (ws) => {
         if (employee) {
           const oldStatus = employee.status;
           const nowIso = new Date().toISOString();
-          const today = nowIso.split('T')[0];
+          const today = getLocalDateString(nowIso);
 
           // 1. Productivity Time Allocation updates (only count if transition is from active state)
           if (oldStatus !== 'Offline') {

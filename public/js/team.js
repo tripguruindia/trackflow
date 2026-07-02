@@ -13,6 +13,15 @@ let pinPurpose = 'unlock_workspace';
 let lastReadLogsTimestamp = localStorage.getItem('lastReadLogsTimestamp_' + selectedMemberId) || '1970-01-01T00:00:00.000Z';
 let lastProcessedLogTimestamp = null;
 
+function getLocalDateString(dateInput) {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : (dateInput || new Date());
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+
 // DOM Elements
 const teamSelect = document.getElementById('team-select');
 const headerLogoutBtn = document.getElementById('header-logout-btn');
@@ -509,7 +518,7 @@ function sendStatusUpdate(status, currentTask) {
 function renderPersonalStats(member) {
   if (!member) return;
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
   let todayProd = { Working: 0, Idle: 0, Break: 0 };
   
   if (productivityData && productivityData[todayStr] && productivityData[todayStr][member.id]) {
@@ -1371,7 +1380,7 @@ function renderPersonalCalendar(monthString) {
     html += `<div class="calendar-day-cell other-month"></div>`;
   }
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
 
   for (let day = 1; day <= daysInMonth; day++) {
     const currentDayDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -1424,16 +1433,9 @@ function renderPersonalCalendar(monthString) {
       const todayDate = new Date();
       todayDate.setHours(0,0,0,0);
       if (dayDate < todayDate) {
-        const dayOfWeek = dayDate.getDay();
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
-          statusSymbol = '—';
-          statusClass = 'off-duty';
-          tooltip = `Weekend Off`;
-        } else {
-          statusSymbol = 'A';
-          statusClass = 'absent';
-          tooltip = `Absent`;
-        }
+        statusSymbol = 'A';
+        statusClass = 'absent';
+        tooltip = `Absent`;
       }
     }
 

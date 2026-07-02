@@ -12,6 +12,15 @@ let teamChart = null;
 let memberChart = null;
 let selectedChartMemberId = '';
 
+function getLocalDateString(dateInput) {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : (dateInput || new Date());
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+
 // DOM Elements
 const statusGrid = document.getElementById('status-grid');
 const logList = document.getElementById('log-list');
@@ -586,7 +595,7 @@ function getThemeGridColor() {
 function renderCharts() {
   if (employees.length === 0) return;
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
   const dayProductivity = productivityData[today] || {};
   const textColor = getThemeTextColor();
   const gridColor = getThemeGridColor();
@@ -762,10 +771,9 @@ if (resetMemberStatsBtn) {
   resetMemberStatsBtn.addEventListener('click', () => {
     const memberId = chartMemberSelect.value;
     if (!memberId) return;
-
     const emp = employees.find(e => e.id === memberId);
     const memberName = emp ? emp.name : 'this employee';
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
 
     if (confirm(`Are you sure you want to reset ${memberName}'s time metrics for today to zero?`)) {
       if (confirm(`Warning: This will set their working, idle, and break hours for today to zero and delete all of today's query session logs. Proceed?`)) {
@@ -1758,7 +1766,7 @@ function initAttendanceDateFilter() {
   filterInput.setAttribute('data-listener-bound', 'true');
 
   // Default to today's date
-  filterInput.value = new Date().toISOString().split('T')[0];
+  filterInput.value = getLocalDateString();
 
   filterInput.addEventListener('change', () => {
     renderAttendanceTable();
@@ -1815,11 +1823,6 @@ function renderAttendanceRegister() {
   for (let day = 1; day <= numDays; day++) {
     const dayTh = document.createElement('th');
     dayTh.textContent = day;
-    const dayOfWeek = new Date(year, targetMonthIndex, day).getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      dayTh.style.color = '#ef4444';
-      dayTh.style.backgroundColor = 'rgba(239, 68, 68, 0.03)';
-    }
     headerTr.appendChild(dayTh);
   }
   thead.appendChild(headerTr);
@@ -1842,7 +1845,7 @@ function renderAttendanceRegister() {
     return;
   }
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
 
   employees.forEach(emp => {
     const tr = document.createElement('tr');
@@ -1863,7 +1866,6 @@ function renderAttendanceRegister() {
       const td = document.createElement('td');
       const dayDate = new Date(year, targetMonthIndex, day);
       const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const dayOfWeek = dayDate.getDay();
 
       const isFuture = dateStr > todayStr;
       const dayLogs = attendanceData.filter(att => 
@@ -1890,11 +1892,7 @@ function renderAttendanceRegister() {
       } else if (isFuture) {
         cellHtml = '<span class="register-status-badge off">—</span>';
       } else {
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
-          cellHtml = '<span class="register-status-badge off" title="Weekend / Off duty">—</span>';
-        } else {
-          cellHtml = '<span class="register-status-badge absent" title="Absent">A</span>';
-        }
+        cellHtml = '<span class="register-status-badge absent" title="Absent">A</span>';
       }
 
       td.innerHTML = cellHtml;
